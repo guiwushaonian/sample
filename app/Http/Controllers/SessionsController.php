@@ -29,10 +29,20 @@ class SessionsController extends Controller
         ]);
 
         if (Auth::attempt($credentials, $request->has('remember'))) {
-            // 登录成功
-            session()->flash('success', '欢迎回来');
-            //return redirect()->route('users.show', [Auth::user()]);
-            return redirect()->intended(route('users.show', [Auth::user()]));
+            // 检查邮箱是否激活
+            if (Auth::user()->activated) {
+                // 登录成功
+                session()->flash('success', '欢迎回来');
+                //return redirect()->route('users.show', [Auth::user()]);
+                return redirect()->intended(route('users.show', [Auth::user()]));
+            } else {
+                Auth::logout();
+                // 提示去激活邮箱
+                session()->flash('warning', '请激活邮箱后再次登录');
+
+                return redirect('/');
+            }
+
         } else {
             // 登录失败
             session()->flash('danger', '很抱歉，邮箱和密码不匹配');

@@ -5,13 +5,14 @@ namespace App\Http\Controllers;
 use Illuminate\Http\Request;
 use App\Models\User;
 use Auth;
+use Mail;
 
 class UsersController extends Controller
 {
     public function __construct()
     {
         $this->middleware('auth', [
-            'except' => ['show', 'create', 'store', 'index']
+            'except' => ['show', 'create', 'store', 'index', 'confirmEmail']
         ]);
 
         $this->middleware('guest', [
@@ -52,9 +53,27 @@ class UsersController extends Controller
             'password' => bcrypt($request->password)
         ]);
 
-        Auth::login($user);
-        session()->flash('success', '欢迎，您将在这里开启一段新的旅程~');
-        return redirect()->route('users.show', [$user]);
+        //Auth::login($user);
+        // 发送邮件
+        $this->sendEmailConfirmationTo($user);
+        //session()->flash('success', '欢迎，您将在这里开启一段新的旅程~');
+        session()->flash('success', '激活邮件发送成功，请激活邮件后登录');
+        //return redirect()->route('users.show', [$user]);
+        return redirect('/');
+    }
+
+    protected function sendEmailConfirmationTo($user)
+    {
+        $view = 'emails.confirm';
+        $data = compact('user');
+        $from = 'gaoxuhui2011@163.com';
+        $name = 'david';
+        $to = $user->email;
+        $subject = "感谢注册 Sample 应用！请确认你的邮箱。";
+
+        Mail::send($view, $data, function ($message) use ($from, $name, $to, $subject) {
+            $message->from($from, $name)->to($to)->subject($subject);
+        });
     }
 
     // edit
@@ -91,5 +110,19 @@ class UsersController extends Controller
         $user->delete();
         session()->flash('success', '删除用户成功');
         return back();
+    }
+
+    //激活邮箱
+    public function confirmEmail($token)
+    {
+        $user = User::where('activation_token', $token)->firstOrFail();
+
+        $user->activation_token = null;
+        $user->activated = true;
+        $user->save();
+
+        Auth::login($user);
+        session()->flash('success', '恭喜您，激活邮箱成功');
+        return redirect()->route('users.show', compact('user'));
     }
 }
